@@ -13,7 +13,7 @@ default_scorer = fuzz.WRatio
 default_processor = utils.full_process
 
 
-def extractWithoutOrder(query, choices, processor=default_processor, scorer=default_scorer, score_cutoff=0):
+def extractWithoutOrder(query, choices, processor=default_processor, scorer=default_scorer, score_cutoff=0, yield_matched=None):
     """Select the best match in a list or dictionary of choices.
 
     Find best matches in a list or dictionary of choices, return a
@@ -109,15 +109,21 @@ def extractWithoutOrder(query, choices, processor=default_processor, scorer=defa
             processed = pre_processor(processor(choice))
             score = scorer(processed_query, processed)
             if score >= score_cutoff:
-                yield (choice, score, key)
+                if not yield_matched:
+                    yield (choice, score, key)
+                else:
+                    yield (choice, score, key, processed)
     except AttributeError:
         # It's a list; just iterate over it.
         for choice in choices:
             processed = pre_processor(processor(choice))
             score = scorer(processed_query, processed)
             if score >= score_cutoff:
-                yield (choice, score)
-
+                if not yield_matched:
+                    yield (choice, score)
+                else:
+                    yield (choice, score, processed)
+                    
 
 def extract(query, choices, processor=default_processor, scorer=default_scorer, limit=5):
     """Select the best match in a list or dictionary of choices.
@@ -194,7 +200,7 @@ def extractBests(query, choices, processor=default_processor, scorer=default_sco
         sorted(best_list, key=lambda i: i[1], reverse=True)
 
 
-def extractOne(query, choices, processor=default_processor, scorer=default_scorer, score_cutoff=0):
+def extractOne(query, choices, processor=default_processor, scorer=default_scorer, score_cutoff=0, yield_matched=None):
     """Find the single best match above a score in a list of choices.
 
     This is a convenience method which returns the single best choice.
@@ -210,12 +216,13 @@ def extractOne(query, choices, processor=default_processor, scorer=default_score
         score_cutoff: Optional argument for score threshold. If the best
             match is found, but it is not greater than this number, then
             return None anyway ("not a good enough match").  Defaults to 0.
+        yield_matched: Optional argument to return the matched term found in query.
 
     Returns:
         A tuple containing a single match and its score, if a match
         was found that was above score_cutoff. Otherwise, returns None.
     """
-    best_list = extractWithoutOrder(query, choices, processor, scorer, score_cutoff)
+    best_list = extractWithoutOrder(query, choices, processor, scorer, score_cutoff, yield_matched)
     try:
         return max(best_list, key=lambda i: i[1])
     except ValueError:
